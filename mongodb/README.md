@@ -31,8 +31,84 @@ Afin de répondre aux différents problèmes, vous allez avoir besoin de créer 
 
 À vous de jouer ! Écrivez les requêtes MongoDB permettant de résoudre les problèmes posés.
 
+### \#1 - Compter le nombre d'appels autour de Lansdale dans un rayon de 500 mètres
 ```
-TODO : ajouter les requêtes MongoDB ici
+db.calls.find({
+ location:
+   { $near:
+      {
+        $geometry: { type: "Point",  coordinates: [ -75.283783, 40.241493  ] },
+        $minDistance: 0,
+        $maxDistance: 500
+      }
+   }
+}).count();
+```
+
+### \#2 - Compter le nombre d'appels par catégorie
+C'est plus pratique d'utiliser une autre colonne qui contiendrait l'identifiant de catégorisation de l'appel.
+
+```
+db.calls.aggregate([{"$group" : {_id:"$category", count:{$sum:1}}}])
+``` 
+
+### \#3 - Trouver les 3 mois ayant comptabilisés le plus d'appels
+On doit bien préciser que le champs timestamp est de type date.
+```
+db.calls.aggregate([
+  {
+    $project: {
+      month: { $month: '$timeStamp' },
+      year: { $year: '$timeStamp' }
+    }
+  },
+  {
+    $project : {
+      monthYear: { 
+        $concat: [ 
+          { $substr: ['$month',0,2] },
+          '/',
+          { $substr: ['$year',0,4] } 
+        ]
+      }
+    }
+  }, 
+  { 
+    $group: {
+      _id: {
+        month: '$monthYear'
+      },
+      count: { $sum: 1 }
+    }
+  },
+  { $sort: { count: -1 } },
+  { $limit : 3 }
+])
+```
+
+
+
+### \#4 - Trouver le top 3 des villes avec le plus d'appels pour overdose
+Il ne faut pas oublier de créer un index sur le champ title pour ça foncitonne correctement.
+
+```
+db.calls.aggregate([
+  {
+    $match: {
+      $text: {
+        $search : 'OVERDOSE'
+      }
+    }
+  },
+  {
+    $group: {
+      _id: '$twp',
+      count: { $sum: 1 }
+    }
+  },
+  { $sort: { count: -1 } },
+  { $limit : 3 }
+])
 ```
 
 Vous allez sûrement avoir besoin de vous inspirer des points suivants de la documentation :
